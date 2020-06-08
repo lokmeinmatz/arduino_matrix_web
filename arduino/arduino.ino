@@ -1,6 +1,7 @@
 #include <Adafruit_NeoPixel.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>   // Include the WebServer library
+#include "conf.h"
 
 // Which pin on the Arduino is connected to the NeoPixels?
 // On a Trinket or Gemma we suggest changing this to 1:
@@ -50,7 +51,7 @@ void setup() {
   delay(10);
   Serial.println("connecting wifi");
   /// TODO !!! nicht auf github pushen
-  WiFi.begin("kitzBx2", "1348.7383.8657.1014.4684");
+  WiFi.begin("kitzBx2", pw);
 
   Serial.print("Connecting");
   unsigned int wifi_ct = 0;
