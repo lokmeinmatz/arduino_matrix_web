@@ -42,6 +42,7 @@ void postHandler() {
 
 void getHandler() {
   Serial.println("get");
+  server.sendHeader("Access-Control-Allow-Origin", "*");
   server.send(200, "text/plain", "I am alive!");
 }
 
@@ -86,4 +87,5 @@ void setup() {
 
 void loop(void) {
   server.handleClient();                    // Listen for HTTP requests from clients
+  delay(5);
 }

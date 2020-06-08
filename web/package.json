@@ -1,0 +1,25 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "description": "the website to control the arduino matrix",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/lokmeinmatz/arduino_matrix_web"
+  },
+  "keywords": [
+    "arduino",
+    "esp8266",
+    "adafruit",
+    "parcel",
+    "typescript"
+  ],
+  "author": "lokmeinmatz",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^3.9.5"
+  }
+}
