@@ -1,3 +1,7 @@
+import { GIFGroover } from './GIFGroover'
+
+import { loadRaw } from './gif'
+
 interface DomElements {
     ip: HTMLInputElement,
     test: HTMLButtonElement
@@ -5,7 +9,8 @@ interface DomElements {
     autoUpdate: HTMLInputElement
     colorSlider: Slider,
     matrix: HTMLDivElement,
-    cells: HTMLDivElement[][]
+    cells: HTMLDivElement[][],
+    frameSelector: HTMLDivElement
 }
 
 const dom: DomElements = {
@@ -15,21 +20,65 @@ const dom: DomElements = {
     autoUpdate: null,
     colorSlider: null,
     matrix: null,
-    cells: null
+    cells: null,
+    frameSelector: null
 };
 
 // debug
 (<any>window).uidom = dom
 
-const matrixColors: Uint8Array = new Uint8Array(64 * 3)
-matrixColors.fill(0)
+
+let frameIndex = 0
+const frames: Uint8Array[] = [new Uint8Array(64 * 3)]
+frames[0].fill(0)
+
+function setVisibleFrame(idx: number) {
+    console.log(`setting visible frame to ${idx}`)
+    frameIndex = idx
+    dom.frameSelector.querySelectorAll('.frame-preview').forEach(e => e.classList.remove('active'))
+    dom.frameSelector.children[idx].classList.add('active')
+
+    // set all cells
+    for(let x = 0; x < 8; x++) {
+        for(let y = 0; y < 8; y++) {
+            const idx = (x + y * 8) * 3
+            const r = frames[frameIndex][idx]
+            const g = frames[frameIndex][idx + 1]
+            const b = frames[frameIndex][idx + 2]
+            dom.cells[x][y].style.backgroundColor = `rgb(${r},${g},${b})`
+        }
+    }
+
+    uploadMatrix(frameIndex)
+}
+
+function updateFrameSelectorUI() {
+    let framesDoms = dom.frameSelector.querySelectorAll('.frame-preview')
+
+    framesDoms.forEach(e => dom.frameSelector.removeChild(e))
+    
+    const addFrameBtn = dom.frameSelector.children[0]
+    //console.log(frames)
+    
+    for(let fi = 0; fi < frames.length; fi++) {
+        let el = document.createElement('div')
+        el.classList.add('frame-preview')
+        el.textContent = `Frame ${fi + 1}`
+        el.onclick = () => {
+            setVisibleFrame(fi)
+        }
+        dom.frameSelector.insertBefore(el, addFrameBtn)
+    }
+
+    setVisibleFrame(frameIndex)
+}
 
 class Slider {
     bar: HTMLDivElement
     knob: HTMLDivElement
     lastValue: number
 
-    private function barXLimits(): { from: number, to: number } {
+    private barXLimits(): { from: number, to: number } {
         const rect = this.bar.getBoundingClientRect()
         return { from: rect.left, to: rect.right }
     }
@@ -107,13 +156,13 @@ async function testMatrix(): Promise<boolean> {
     return false
 }
 
-async function uploadMatrix() {
+async function uploadMatrix(frameIndex: number) {
     const res = await fetch(`http://${dom.ip.value}/all`, {
         headers: {
             'Content-Type': 'text/plain'
         },
         method: 'POST',
-        body: matrixColors
+        body: frames[frameIndex]
     })
 
     if (res.status != 200) console.error(res)
@@ -179,9 +228,9 @@ async function setPixelColor(x: number, y: number, r: number, g: number, b: numb
     g = Math.min(255, Math.floor(g))
     b = Math.min(255, Math.floor(b))
     const idx = (y * 8 + x) * 3
-    matrixColors[idx] = r
-    matrixColors[idx + 1] = g
-    matrixColors[idx + 2] = b
+    frames[frameIndex][idx] = r
+    frames[frameIndex][idx + 1] = g
+    frames[frameIndex][idx + 2] = b
 
     dom.cells[x][y].style.backgroundColor = `rgb(${r},${g},${b})`
 
@@ -207,8 +256,9 @@ window.onload = () => {
         <HTMLDivElement>document.getElementById('colorpicker-container')
     )
     dom.matrix = <HTMLDivElement>document.getElementById('matrix')
-    // ------------------------
     dom.cells = []
+    dom.frameSelector = <HTMLDivElement> document.getElementById('frame-selector')
+    // ------------------------
 
     const drawCell: (x: number, y: number) => void = (x, y) => {
         const { r, g, b } = HSVtoRGB((1 - dom.colorSlider.lastValue) * 360, 1, 1)
@@ -217,13 +267,13 @@ window.onload = () => {
     }
 
     document.getElementById('white').onclick = () => {
-        matrixColors.fill(255)
-        uploadMatrix()
+        frames[frameIndex].fill(255)
+        uploadMatrix(frameIndex)
     }
 
     document.getElementById('black').onclick = () => {
-        matrixColors.fill(0)
-        uploadMatrix()
+        frames[frameIndex].fill(0)
+        uploadMatrix(frameIndex)
     }
 
     for (let x = 0; x < 8; x++) {
@@ -286,8 +336,34 @@ window.onload = () => {
     window.onresize = matrixSizeMatch
     matrixSizeMatch()
 
+
+    const gifInput = document.getElementById('gif-input')
+
+    gifInput.onchange = async evt => {
+        if (evt.target.files.length != 1) return
+        const gif = await new Promise((res, rej) => {
+            const g = GIFGroover()
+            g.onload = () => res(g)
+            g.onerror = rej
+            const url = URL.createObjectURL(evt.target.files[0])
+            console.log('loading', url)
+            g.src = url
+        })
+        
+        console.log(gif.allFrames)
+    }
+
     dom.update.onclick = () => {
-        uploadMatrix()
+        uploadMatrix(frameIndex)
+    }
+
+    const addFrameBtn = document.getElementById('add-frame')
+    addFrameBtn.onclick = () => {
+        console.log('add-frame')
+        const nframe = new Uint8Array(64 * 3)
+        frames.push(nframe)
+        updateFrameSelectorUI()
+
     }
 
     dom.test.onclick = async () => {
@@ -303,4 +379,6 @@ window.onload = () => {
             dom.test.classList.add('valid')
         }
     }
+
+    updateFrameSelectorUI()
 }

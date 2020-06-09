@@ -7,11 +7,12 @@ body {
     background-color: #0f0f0f;
     color: white;
     display: grid;
-    grid-template-rows: min-content auto;
+    grid-template-rows: min-content auto min-content;
     grid-template-columns: minmax(0, 1fr);
     margin: 0;
     height: 100vh;
     width: 100vw;
+    overflow: hidden;
     font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -24,6 +25,11 @@ body {
     align-items: center;
     min-height: 0;  /* NEW */
     min-width: 0;   /* NEW; needed for Firefox */
+}
+
+#config #gif-input {
+    grid-column: 1 / span 2;
+    margin: 10px 0;
 }
 
 #config > * {
@@ -41,10 +47,11 @@ body {
 }
 
 #config button {
-    margin-left: 10px;
+    margin-right: 10px;
     background-color: orange;
     cursor: pointer;
 }
+
 
 #config button.valid {
     background-color: greenyellow;
@@ -87,8 +94,6 @@ body {
 }
 
 #matrix-container {
-    position: relative;
-    width: 100%;
 }
 
 #matrix {
@@ -99,6 +104,40 @@ body {
 
 #matrix > div {
     border: 1px gray solid;
+}
+
+#frame-selector-wrapper {
+    overflow-x: scroll;
+}
+
+#frame-selector {
+    background-color: #252525;
+    height: 150px;
+    width: min-content;
+    min-width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#add-frame {
+    min-width: 80px;
+}
+
+#frame-selector > * {
+    margin: 0px 10px;
+}
+
+.frame-preview {
+    padding: 20px;
+    text-align: center;
+    min-width: 120px;
+    border-radius: 5px;
+    border: solid 2px gray;
+}
+.frame-preview.active {
+    background-color: #505050;
+    border: solid 4px green;
 }
 
 @media (orientation: landscape) {
