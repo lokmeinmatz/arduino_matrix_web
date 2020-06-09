@@ -10,7 +10,7 @@
 // How many NeoPixels are attached to the Arduino?
 #define LED_COUNT 64
 
-#define DIM_FRACT 8
+#define DIM_FRACT 1
 
 // Declare our NeoPixel strip object:
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -18,8 +18,10 @@ Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 ESP8266WebServer server(80);
 
 
-void postHandler() {
-  Serial.println("post");
+void postAllHandler() {
+  Serial.println("post all");
+  
+  server.sendHeader("Access-Control-Allow-Origin", "*");
 
   if (!server.hasArg("plain")) { //Check if body received
     server.send(400, "text/plain", "Body not received");
@@ -38,6 +40,46 @@ void postHandler() {
   }
   strip.show();
   server.send(200, "text/plain", "Set all leds");
+}
+
+void postDeltaHandler() {
+  Serial.println("post delta");
+  unsigned long startMillis = millis();
+  
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+
+  if (!server.hasArg("plain")) { //Check if body received
+    server.send(400, "text/plain", "Body not received");
+    return;
+  }
+
+  String body = server.arg("plain");
+
+  if (body.length() < 6) {
+    server.send(400, "text/plain", "body must be 6 bytes long");
+    return;
+  }
+
+  unsigned char deltaUpdates = body.charAt(0);
+
+  Serial.println(deltaUpdates);
+
+  for(int u = 0; u < deltaUpdates; u++) {
+    unsigned int bidx = (u * 5) + 1;
+    unsigned char x = body.charAt(bidx + 0);
+    unsigned char y = body.charAt(bidx + 1);
+    unsigned char r = body.charAt(bidx + 2);
+    unsigned char g = body.charAt(bidx + 3);
+    unsigned char b = body.charAt(bidx + 4);
+    strip.setPixelColor(x + y * 8, strip.Color(r / DIM_FRACT, g / DIM_FRACT, b / DIM_FRACT));
+  }
+
+ 
+  strip.show();
+  server.send(200, "text/plain", "Set led");
+
+  unsigned long elapsed = millis() - startMillis;
+  Serial.println(elapsed);
 }
 
 void getHandler() {
@@ -71,7 +113,8 @@ void setup() {
   Serial.print("IP address:\t");
   Serial.println(WiFi.localIP());
 
-  server.on("/", HTTP_POST, postHandler);
+  server.on("/all", HTTP_POST, postAllHandler);
+  server.on("/", HTTP_POST, postDeltaHandler);
   server.on("/", HTTP_GET, getHandler);
   server.begin();
   Serial.println("Webserver started");
@@ -87,5 +130,5 @@ void setup() {
 
 void loop(void) {
   server.handleClient();                    // Listen for HTTP requests from clients
-  delay(5);
+  //delay(5);
 }

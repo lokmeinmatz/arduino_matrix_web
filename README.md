@@ -12,16 +12,22 @@ Run with `parcel ./index.hml`
 
 ## protocol
 
-The arduino provides a sigle endpoint `/`
+The arduino provides the endpoints `/` and `/all`
 It sends the CORS-header *Access-Control-Allow-Origin: \**
 Change this if the arduino is open to the internet!
 
 
-### GET
+### GET /
 
-The arduino returns `I'm alive!` as `text/plain`
+The arduino returns `I'm alive!` as `text/plain` for checking if it's working
 
-### POST
+### POST /
+
+The body contains a byte-string, first byte tells number n of delta-updates,
+then n 5-byte chunks follow.
+Each contains (x|y|r|g|b)
+
+### POST /all
 
 The body must contain 64 * 3 = 192 bytes of data.
 Each LED is representend as 3 bytes (r, g, b).
