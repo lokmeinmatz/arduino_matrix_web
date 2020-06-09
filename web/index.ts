@@ -5,9 +5,8 @@ import { loadRaw } from './gif'
 interface DomElements {
     ip: HTMLInputElement,
     test: HTMLButtonElement
-    update: HTMLButtonElement
-    autoUpdate: HTMLInputElement
     colorSlider: Slider,
+    valueSlider: Slider,
     matrix: HTMLDivElement,
     cells: HTMLDivElement[][],
     frameSelector: HTMLDivElement
@@ -16,9 +15,8 @@ interface DomElements {
 const dom: DomElements = {
     ip: null,
     test: null,
-    update: null,
-    autoUpdate: null,
     colorSlider: null,
+    valueSlider: null,
     matrix: null,
     cells: null,
     frameSelector: null
@@ -36,7 +34,7 @@ function setVisibleFrame(idx: number) {
     console.log(`setting visible frame to ${idx}`)
     frameIndex = idx
     dom.frameSelector.querySelectorAll('.frame-preview').forEach(e => e.classList.remove('active'))
-    dom.frameSelector.children[idx].classList.add('active')
+    dom.frameSelector.children[idx].children[0].classList.add('active')
 
     // set all cells
     for(let x = 0; x < 8; x++) {
@@ -55,19 +53,36 @@ function setVisibleFrame(idx: number) {
 function updateFrameSelectorUI() {
     let framesDoms = dom.frameSelector.querySelectorAll('.frame-preview')
 
-    framesDoms.forEach(e => dom.frameSelector.removeChild(e))
+    framesDoms.forEach(e => dom.frameSelector.removeChild(e.parentElement))
     
     const addFrameBtn = dom.frameSelector.children[0]
     //console.log(frames)
     
     for(let fi = 0; fi < frames.length; fi++) {
+        let wrapper = document.createElement('div')
+        wrapper.classList.add('frame-preview-wrapper')
+
         let el = document.createElement('div')
         el.classList.add('frame-preview')
         el.textContent = `Frame ${fi + 1}`
         el.onclick = () => {
             setVisibleFrame(fi)
         }
-        dom.frameSelector.insertBefore(el, addFrameBtn)
+        wrapper.appendChild(el)
+        
+        let deleteFrameBtn = document.createElement('button')
+
+        deleteFrameBtn.textContent = 'X'
+        deleteFrameBtn.classList.add('delete-frame')
+        deleteFrameBtn.onclick = () => {
+            if (frames.length < 2) return
+            frames.splice(frameIndex, 1)
+            if (frameIndex >= frames.length) frameIndex--
+            updateFrameSelectorUI()
+        }
+        wrapper.appendChild(deleteFrameBtn)
+        
+        dom.frameSelector.insertBefore(wrapper, addFrameBtn)
     }
 
     setVisibleFrame(frameIndex)
@@ -92,7 +107,7 @@ class Slider {
             let x = evt.clientX
             const { from, to } = this.barXLimits()
 
-            x = Math.min(to, Math.max(from - 7, x - 7)) - from
+            x = Math.min(to - 7, Math.max(from - 7, x - 7)) - from
 
             this.lastValue = x / (to - from)
             this.knob.style.left = (x - 7) + 'px'
@@ -102,11 +117,11 @@ class Slider {
         this.bar.ontouchmove = evt => {
             let x = evt.changedTouches[0].pageX
             const { from, to } = this.barXLimits()
-            console.log(evt)
-            x = Math.min(to, Math.max(from - 15, x - 15))
+            //console.log(evt)
+            x = Math.min(to, Math.max(from, x)) - from
 
             this.lastValue = x / (to - from)
-            console.log('touch', x, this.lastValue)
+            //console.log('touch', x, this.lastValue)
             this.knob.style.left = (x - 7) + 'px'
         }
 
@@ -250,10 +265,11 @@ window.onload = () => {
     // --- get dom elements ---
     dom.ip = <HTMLInputElement>document.getElementById('ip')
     dom.test = <HTMLButtonElement>document.getElementById('test')
-    dom.update = <HTMLButtonElement>document.getElementById('update')
-    dom.autoUpdate = <HTMLInputElement>document.getElementById('autoupdate')
     dom.colorSlider = new Slider(
         <HTMLDivElement>document.getElementById('colorpicker-container')
+    )
+    dom.valueSlider = new Slider(
+        <HTMLDivElement>document.getElementById('value-container')
     )
     dom.matrix = <HTMLDivElement>document.getElementById('matrix')
     dom.cells = []
@@ -261,20 +277,11 @@ window.onload = () => {
     // ------------------------
 
     const drawCell: (x: number, y: number) => void = (x, y) => {
-        const { r, g, b } = HSVtoRGB((1 - dom.colorSlider.lastValue) * 360, 1, 1)
+        const { r, g, b } = HSVtoRGB((1 - dom.colorSlider.lastValue) * 360, 1, dom.valueSlider.lastValue)
         setPixelColor(x, y, r, g, b)
         //uploadMatrix()
     }
 
-    document.getElementById('white').onclick = () => {
-        frames[frameIndex].fill(255)
-        uploadMatrix(frameIndex)
-    }
-
-    document.getElementById('black').onclick = () => {
-        frames[frameIndex].fill(0)
-        uploadMatrix(frameIndex)
-    }
 
     for (let x = 0; x < 8; x++) {
         dom.cells[x] = []
@@ -353,9 +360,6 @@ window.onload = () => {
         console.log(gif.allFrames)
     }
 
-    dom.update.onclick = () => {
-        uploadMatrix(frameIndex)
-    }
 
     const addFrameBtn = document.getElementById('add-frame')
     addFrameBtn.onclick = () => {

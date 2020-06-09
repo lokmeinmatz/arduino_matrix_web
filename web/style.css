@@ -84,6 +84,10 @@ body {
     background: linear-gradient(to left, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%);
 }
 
+#value-bar {
+    background: linear-gradient(90deg, #000 0%, #ffffff 100%);
+}
+
 .slider-knob {
     width: 15px;
     height: 15px;
@@ -127,6 +131,26 @@ body {
 #frame-selector > * {
     margin: 0px 10px;
 }
+
+.frame-preview-wrapper {
+    display: grid;
+    grid-template-rows: auto 20px;
+    justify-items: center;
+    align-items: center;
+    height: max-content;
+}
+
+.delete-frame {
+    color: white;
+    margin-top: 35px;
+    background-color: red;
+    border-radius: 50%;
+    width: 2em;
+    height: 2em;
+    border: none;
+
+}
+
 
 .frame-preview {
     padding: 20px;
