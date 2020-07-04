@@ -2,6 +2,8 @@ import { GIFGroover } from './GIFGroover'
 
 import { loadRaw } from './gif'
 
+import * as frames from './frames'
+
 interface DomElements {
     ip: HTMLInputElement,
     test: HTMLButtonElement
@@ -12,7 +14,7 @@ interface DomElements {
     frameSelector: HTMLDivElement
 }
 
-const dom: DomElements = {
+export const dom: DomElements = {
     ip: null,
     test: null,
     colorSlider: null,
@@ -25,31 +27,6 @@ const dom: DomElements = {
 // debug
 (<any>window).uidom = dom
 
-
-let frameIndex = 0
-const frames: Uint8Array[] = [new Uint8Array(64 * 3)]
-frames[0].fill(0)
-
-function setVisibleFrame(idx: number) {
-    console.log(`setting visible frame to ${idx}`)
-    frameIndex = idx
-    dom.frameSelector.querySelectorAll('.frame-preview').forEach(e => e.classList.remove('active'))
-    dom.frameSelector.children[idx].children[0].classList.add('active')
-
-    // set all cells
-    for(let x = 0; x < 8; x++) {
-        for(let y = 0; y < 8; y++) {
-            const idx = (x + y * 8) * 3
-            const r = frames[frameIndex][idx]
-            const g = frames[frameIndex][idx + 1]
-            const b = frames[frameIndex][idx + 2]
-            dom.cells[x][y].style.backgroundColor = `rgb(${r},${g},${b})`
-        }
-    }
-
-    uploadMatrix(frameIndex)
-}
-
 function updateFrameSelectorUI() {
     let framesDoms = dom.frameSelector.querySelectorAll('.frame-preview')
 
@@ -58,7 +35,7 @@ function updateFrameSelectorUI() {
     const addFrameBtn = dom.frameSelector.children[0]
     //console.log(frames)
     
-    for(let fi = 0; fi < frames.length; fi++) {
+    for(let fi = 0; fi < frames.getFrameBuffer().length; fi++) {
         let wrapper = document.createElement('div')
         wrapper.classList.add('frame-preview-wrapper')
 
@@ -66,7 +43,7 @@ function updateFrameSelectorUI() {
         el.classList.add('frame-preview')
         el.textContent = `Frame ${fi + 1}`
         el.onclick = () => {
-            setVisibleFrame(fi)
+            frames.setVisibleFrame(fi)
         }
         wrapper.appendChild(el)
         
@@ -75,9 +52,7 @@ function updateFrameSelectorUI() {
         deleteFrameBtn.textContent = 'X'
         deleteFrameBtn.classList.add('delete-frame')
         deleteFrameBtn.onclick = () => {
-            if (frames.length < 2) return
-            frames.splice(frameIndex, 1)
-            if (frameIndex >= frames.length) frameIndex--
+            frames.removeFrame(fi)
             updateFrameSelectorUI()
         }
         wrapper.appendChild(deleteFrameBtn)
@@ -85,7 +60,7 @@ function updateFrameSelectorUI() {
         dom.frameSelector.insertBefore(wrapper, addFrameBtn)
     }
 
-    setVisibleFrame(frameIndex)
+    frames.setVisibleFrame(frames.getFrameIndex())
 }
 
 class Slider {
@@ -171,96 +146,6 @@ async function testMatrix(): Promise<boolean> {
     return false
 }
 
-async function uploadMatrix(frameIndex: number) {
-    const res = await fetch(`http://${dom.ip.value}/all`, {
-        headers: {
-            'Content-Type': 'text/plain'
-        },
-        method: 'POST',
-        body: frames[frameIndex]
-    })
-
-    if (res.status != 200) console.error(res)
-}
-
-let reqInFlight = false
-
-interface DeltaPixelUpdate {
-    x: number
-    y: number
-    r: number
-    g: number
-    b: number
-}
-
-const updateQueue: Map<[number, number], DeltaPixelUpdate> = new Map();
-(<any> window).uq = updateQueue
-
-async function sendDeltaUpdate() {
-    reqInFlight = true
-    let postsSend = 0
-    while (updateQueue.size > 0) {
-        if (updateQueue.size > 255) {
-            console.error('updateQueue size > 255!')
-            return
-        }
-        postsSend++
-        
-        const body = new Uint8Array(1 + updateQueue.size * 5)
-        body[0] = updateQueue.size
-    
-        let idx = 1
-        updateQueue.forEach(ud => {
-            body[idx] = ud.x
-            body[idx + 1] = ud.y
-            body[idx + 2] = ud.r
-            body[idx + 3] = ud.g
-            body[idx + 4] = ud.b
-            idx += 5
-        })
-    
-        if(idx != updateQueue.size * 5 + 1) console.error('idx != size after copy')
-        updateQueue.clear()
-        console.time('delta update')
-        const res = await fetch(`http://${dom.ip.value}/`, {
-            headers: {
-                'Content-Type': 'text/plain'
-            },
-            method: 'POST',
-            body: body
-        })
-    
-        console.timeEnd('delta update')
-        if (res.status != 200) console.error(res, await res.text())
-    }
-    console.log(`Send ${postsSend} posts`)
-    reqInFlight = false
-}
-
-// sets the ccolor inside the matrixColors array and UI
-async function setPixelColor(x: number, y: number, r: number, g: number, b: number, sendDelta = true) {
-    r = Math.min(255, Math.floor(r))
-    g = Math.min(255, Math.floor(g))
-    b = Math.min(255, Math.floor(b))
-    const idx = (y * 8 + x) * 3
-    frames[frameIndex][idx] = r
-    frames[frameIndex][idx + 1] = g
-    frames[frameIndex][idx + 2] = b
-
-    dom.cells[x][y].style.backgroundColor = `rgb(${r},${g},${b})`
-
-    if (sendDelta) {
-
-        const dup: DeltaPixelUpdate = {
-            x, y, r, g, b
-        }
-
-        updateQueue.set([x, y], dup)
-
-        if (!reqInFlight) sendDeltaUpdate()
-    }
-}
-
 window.onload = () => {
     // --- get dom elements ---
     dom.ip = <HTMLInputElement>document.getElementById('ip')
@@ -278,7 +163,7 @@ window.onload = () => {
 
     const drawCell: (x: number, y: number) => void = (x, y) => {
         const { r, g, b } = HSVtoRGB((1 - dom.colorSlider.lastValue) * 360, 1, dom.valueSlider.lastValue)
-        setPixelColor(x, y, r, g, b)
+        frames.setPixelColor(x, y, r, g, b)
         //uploadMatrix()
     }
 
@@ -292,7 +177,7 @@ window.onload = () => {
             cell.style.gridColumn = `${x + 1} / span 1`
 
             dom.cells[x][y] = cell
-            setPixelColor(x, y, 0, 0, 0, false)
+            frames.setPixelColor(x, y, 0, 0, 0, false)
             cell.onclick = () => {
                 drawCell(x, y)
             }
@@ -364,10 +249,8 @@ window.onload = () => {
     const addFrameBtn = document.getElementById('add-frame')
     addFrameBtn.onclick = () => {
         console.log('add-frame')
-        const nframe = new Uint8Array(64 * 3)
-        frames.push(nframe)
+        frames.addFrame()
         updateFrameSelectorUI()
-
     }
 
     dom.test.onclick = async () => {
